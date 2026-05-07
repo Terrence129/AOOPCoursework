@@ -73,6 +73,102 @@ public class SudokuModel extends Observable {
         return !board[row][col].isPreFilled();
     }
 
+    /**
+     * Sets a value in an editable cell.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @param value the new value from 1 to 9
+     * @return true if the value was set
+     */
+    public boolean setValue(int row, int col, int value) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert value >= 1 && value <= BOARD_SIZE : "value must be in range 1-9";
+        assert invariant() : "model invariant failed before setting value";
+        validateCoordinates(row, col);
+
+        if (!isUserChangeAllowed(row, col) || !isInputValue(value)) {
+            assert invariant() : "failed set must not change model state";
+            return false;
+        }
+        if (validationFeedbackEnabled && !isValueValidAt(row, col, value)) {
+            assert invariant() : "failed set must not change model state";
+            return false;
+        }
+
+        int oldValue = board[row][col].getValue();
+        undoStack.push(new Move(row, col, oldValue, value));
+        board[row][col] = new Cell(value, false);
+        notifyModelChanged();
+
+        assert invariant() : "model invariant failed after setting value";
+        return true;
+    }
+
+    /**
+     * Clears an editable cell.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return true if the cell was cleared
+     */
+    public boolean clearValue(int row, int col) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before clearing value";
+        validateCoordinates(row, col);
+
+        if (!isUserChangeAllowed(row, col)) {
+            assert invariant() : "failed clear must not change model state";
+            return false;
+        }
+
+        int oldValue = board[row][col].getValue();
+        undoStack.push(new Move(row, col, oldValue, EMPTY_VALUE));
+        board[row][col] = new Cell(EMPTY_VALUE, false);
+        notifyModelChanged();
+
+        assert invariant() : "model invariant failed after clearing value";
+        return true;
+    }
+
+    /**
+     * Undoes the last user change.
+     *
+     * @return true if a move was undone
+     */
+    public boolean undo() {
+        assert invariant() : "model invariant failed before undo";
+        if (undoStack.isEmpty()) {
+            assert invariant() : "failed undo must not change model state";
+            return false;
+        }
+
+        Move move = undoStack.pop();
+        if (!isUserChangeAllowed(move.getRow(), move.getCol())) {
+            assert invariant() : "model invariant failed after blocked undo";
+            return false;
+        }
+
+        board[move.getRow()][move.getCol()] = new Cell(move.getOldValue(), false);
+        notifyModelChanged();
+
+        assert invariant() : "model invariant failed after undo";
+        return true;
+    }
+
+    /**
+     * Restores the board to the starting puzzle.
+     */
+    public void reset() {
+        assert invariant() : "model invariant failed before reset";
+        board = copyBoard(initialBoard);
+        undoStack.clear();
+        notifyModelChanged();
+        assert invariant() : "model invariant failed after reset";
+    }
+
     // Checks whether one cell follows row, column, and box rules.
     public boolean isCellValid(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
@@ -303,6 +399,67 @@ public class SudokuModel extends Observable {
 
     private boolean isValueInRange(int value) {
         return value >= EMPTY_VALUE && value <= BOARD_SIZE;
+    }
+
+    private boolean isInputValue(int value) {
+        return value >= 1 && value <= BOARD_SIZE;
+    }
+
+    private boolean isUserChangeAllowed(int row, int col) {
+        return isCoordinateInRange(row)
+                && isCoordinateInRange(col)
+                && !initialBoard[row][col].isPreFilled();
+    }
+
+    private Cell[][] copyBoard(Cell[][] source) {
+        Cell[][] copy = new Cell[BOARD_SIZE][BOARD_SIZE];
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                Cell cell = source[row][col];
+                copy[row][col] = new Cell(cell.getValue(), cell.isPreFilled());
+            }
+        }
+        return copy;
+    }
+
+    private boolean isValueValidAt(int row, int col, int value) {
+        return !valueExistsInRow(row, col, value)
+                && !valueExistsInColumn(row, col, value)
+                && !valueExistsInBox(row, col, value);
+    }
+
+    private boolean valueExistsInRow(int row, int ignoredCol, int value) {
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            if (col != ignoredCol && board[row][col].getValue() == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean valueExistsInColumn(int ignoredRow, int col, int value) {
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            if (row != ignoredRow && board[row][col].getValue() == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean valueExistsInBox(int row, int col, int value) {
+        int startRow = row - row % 3;
+        int startCol = col - col % 3;
+        for (int rowOffset = 0; rowOffset < 3; rowOffset++) {
+            for (int colOffset = 0; colOffset < 3; colOffset++) {
+                int checkedRow = startRow + rowOffset;
+                int checkedCol = startCol + colOffset;
+                if ((checkedRow != row || checkedCol != col)
+                        && board[checkedRow][checkedCol].getValue() == value) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean hasDuplicateInRow(int row) {

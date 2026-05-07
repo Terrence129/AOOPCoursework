@@ -73,6 +73,63 @@ public class SudokuModel extends Observable {
         return !board[row][col].isPreFilled();
     }
 
+    // Checks whether one cell follows row, column, and box rules.
+    public boolean isCellValid(int row, int col) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before checking cell";
+        validateCoordinates(row, col);
+
+        int value = board[row][col].getValue();
+        boolean result;
+        if (value == EMPTY_VALUE) {
+            result = true;
+        } else {
+            result = countValueInRow(row, value) == 1
+                    && countValueInColumn(col, value) == 1
+                    && countValueInBox(row, col, value) == 1;
+        }
+
+        assert invariant() : "validation must not change model state";
+        return result;
+    }
+
+    // Checks whether the whole board has no duplicate numbers.
+    public boolean isBoardValid() {
+        assert invariant() : "model invariant failed before checking board";
+        boolean result = true;
+        for (int index = 0; index < BOARD_SIZE; index++) {
+            if (!isRowValid(index) || !isColumnValid(index)) {
+                result = false;
+                break;
+            }
+        }
+
+        if (result) {
+            for (int row = 0; row < BOARD_SIZE; row += 3) {
+                for (int col = 0; col < BOARD_SIZE; col += 3) {
+                    if (!isBoxValid(row, col)) {
+                        result = false;
+                    }
+                }
+            }
+        }
+        assert invariant() : "validation must not change model state";
+        return result;
+    }
+
+    // Returns true when a cell should be shown as invalid.
+    public boolean isCellInvalid(int row, int col) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before checking invalid cell";
+        validateCoordinates(row, col);
+
+        boolean result = validationFeedbackEnabled && !isCellValid(row, col);
+        assert invariant() : "validation must not change model state";
+        return result;
+    }
+
     // Returns whether invalid entries should be shown to the user.
     public boolean isValidationFeedbackEnabled() {
         assert invariant() : "model invariant failed before reading validation flag";
@@ -159,6 +216,22 @@ public class SudokuModel extends Observable {
         }
     }
 
+    private boolean isRowValid(int row) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        return !hasDuplicateInRow(row);
+    }
+
+    private boolean isColumnValid(int col) {
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        return !hasDuplicateInColumn(col);
+    }
+
+    private boolean isBoxValid(int row, int col) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        return !hasDuplicateInBox(row, col);
+    }
+
     private boolean isCoordinateInRange(int coordinate) {
         return coordinate >= 0 && coordinate < BOARD_SIZE;
     }
@@ -230,5 +303,87 @@ public class SudokuModel extends Observable {
 
     private boolean isValueInRange(int value) {
         return value >= EMPTY_VALUE && value <= BOARD_SIZE;
+    }
+
+    private boolean hasDuplicateInRow(int row) {
+        boolean[] seen = new boolean[BOARD_SIZE + 1];
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            int value = board[row][col].getValue();
+            if (isDuplicateValue(value, seen)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasDuplicateInColumn(int col) {
+        boolean[] seen = new boolean[BOARD_SIZE + 1];
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            int value = board[row][col].getValue();
+            if (isDuplicateValue(value, seen)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasDuplicateInBox(int row, int col) {
+        boolean[] seen = new boolean[BOARD_SIZE + 1];
+        int startRow = row - row % 3;
+        int startCol = col - col % 3;
+        for (int rowOffset = 0; rowOffset < 3; rowOffset++) {
+            for (int colOffset = 0; colOffset < 3; colOffset++) {
+                int value = board[startRow + rowOffset][startCol + colOffset].getValue();
+                if (isDuplicateValue(value, seen)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isDuplicateValue(int value, boolean[] seen) {
+        if (value == EMPTY_VALUE) {
+            return false;
+        }
+        if (seen[value]) {
+            return true;
+        }
+        seen[value] = true;
+        return false;
+    }
+
+    private int countValueInRow(int row, int value) {
+        int count = 0;
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            if (board[row][col].getValue() == value) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int countValueInColumn(int col, int value) {
+        int count = 0;
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            if (board[row][col].getValue() == value) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int countValueInBox(int row, int col, int value) {
+        int count = 0;
+        int startRow = row - row % 3;
+        int startCol = col - col % 3;
+        for (int rowOffset = 0; rowOffset < 3; rowOffset++) {
+            for (int colOffset = 0; colOffset < 3; colOffset++) {
+                if (board[startRow + rowOffset][startCol + colOffset].getValue() == value) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 }

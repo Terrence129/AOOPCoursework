@@ -7,6 +7,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Observable;
 import java.util.Objects;
+import java.util.Random;
 
 /**
  * @description:
@@ -167,6 +168,55 @@ public class SudokuModel extends Observable {
         undoStack.clear();
         notifyModelChanged();
         assert invariant() : "model invariant failed after reset";
+    }
+
+    // Checks whether the puzzle is completely and correctly filled.
+    public boolean isComplete() {
+        assert invariant() : "model invariant failed before completion check";
+        boolean result = isFilled() && isBoardValid();
+        assert invariant() : "completion check must not change model state";
+        return result;
+    }
+
+    // Starts another puzzle.
+    public void newGame() {
+        assert invariant() : "model invariant failed before new game";
+        if (randomPuzzleSelectionEnabled) {
+            currentPuzzleIndex = new Random().nextInt(allPuzzles.size());
+        } else {
+            currentPuzzleIndex = (currentPuzzleIndex + 1) % allPuzzles.size();
+        }
+
+        initializeBoard(PuzzleLoader.parsePuzzle(allPuzzles.get(currentPuzzleIndex)));
+        undoStack.clear();
+        notifyModelChanged();
+        assert invariant() : "model invariant failed after new game";
+    }
+
+    // Fills one empty editable cell with a solved value.
+    public boolean revealHint(int row, int col) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before hint";
+        validateCoordinates(row, col);
+
+        if (!hintEnabled || !isUserChangeAllowed(row, col) || board[row][col].getValue() != EMPTY_VALUE) {
+            assert invariant() : "failed hint must not change model state";
+            return false;
+        }
+
+        int solvedValue = solveCell(row, col);
+        if (solvedValue == EMPTY_VALUE) {
+            assert invariant() : "failed hint must not change model state";
+            return false;
+        }
+
+        undoStack.push(new Move(row, col, EMPTY_VALUE, solvedValue));
+        board[row][col] = new Cell(solvedValue, false);
+        notifyModelChanged();
+
+        assert invariant() : "model invariant failed after hint";
+        return true;
     }
 
     // Checks whether one cell follows row, column, and box rules.
@@ -401,6 +451,17 @@ public class SudokuModel extends Observable {
         return value >= EMPTY_VALUE && value <= BOARD_SIZE;
     }
 
+    private boolean isFilled() {
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                if (board[row][col].getValue() == EMPTY_VALUE) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private boolean isInputValue(int value) {
         return value >= 1 && value <= BOARD_SIZE;
     }
@@ -420,6 +481,89 @@ public class SudokuModel extends Observable {
             }
         }
         return copy;
+    }
+
+    private int solveCell(int row, int col) {
+        assert isCoordinateInRange(row) : "row must be in range 0-8";
+        assert isCoordinateInRange(col) : "col must be in range 0-8";
+
+        int[][] solvedBoard = copyInitialValues();
+        if (solveBoard(solvedBoard, 0)) {
+            return solvedBoard[row][col];
+        }
+        return EMPTY_VALUE;
+    }
+
+    private int[][] copyInitialValues() {
+        int[][] values = new int[BOARD_SIZE][BOARD_SIZE];
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                values[row][col] = initialBoard[row][col].getValue();
+            }
+        }
+        return values;
+    }
+
+    private boolean solveBoard(int[][] values, int cellIndex) {
+        if (cellIndex == BOARD_SIZE * BOARD_SIZE) {
+            return true;
+        }
+
+        int row = cellIndex / BOARD_SIZE;
+        int col = cellIndex % BOARD_SIZE;
+        if (values[row][col] != EMPTY_VALUE) {
+            return solveBoard(values, cellIndex + 1);
+        }
+
+        for (int value = 1; value <= BOARD_SIZE; value++) {
+            if (isValueAllowedInGrid(values, row, col, value)) {
+                values[row][col] = value;
+                if (solveBoard(values, cellIndex + 1)) {
+                    return true;
+                }
+                values[row][col] = EMPTY_VALUE;
+            }
+        }
+        return false;
+    }
+
+    private boolean isValueAllowedInGrid(int[][] values, int row, int col, int value) {
+        return !valueExistsInGridRow(values, row, col, value)
+                && !valueExistsInGridColumn(values, row, col, value)
+                && !valueExistsInGridBox(values, row, col, value);
+    }
+
+    private boolean valueExistsInGridRow(int[][] values, int row, int ignoredCol, int value) {
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            if (col != ignoredCol && values[row][col] == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean valueExistsInGridColumn(int[][] values, int ignoredRow, int col, int value) {
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            if (row != ignoredRow && values[row][col] == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean valueExistsInGridBox(int[][] values, int row, int col, int value) {
+        int startRow = row - row % 3;
+        int startCol = col - col % 3;
+        for (int rowOffset = 0; rowOffset < 3; rowOffset++) {
+            for (int colOffset = 0; colOffset < 3; colOffset++) {
+                int checkedRow = startRow + rowOffset;
+                int checkedCol = startCol + colOffset;
+                if ((checkedRow != row || checkedCol != col) && values[checkedRow][checkedCol] == value) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean isValueValidAt(int row, int col, int value) {

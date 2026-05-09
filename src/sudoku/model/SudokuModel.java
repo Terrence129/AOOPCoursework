@@ -29,7 +29,17 @@ public class SudokuModel extends Observable {
     private boolean hintEnabled;
     private boolean randomPuzzleSelectionEnabled;
 
-    // Loads puzzle data and starts with the first puzzle.
+    /**
+     * Creates a model and loads the first puzzle.
+     *
+     * Preconditions:
+     * puzzleFile is not null and points to a readable puzzle file.
+     *
+     * Postconditions:
+     * the board and initial board are 9x9, puzzles are loaded, and observers are notified.
+     *
+     * @param puzzleFile the path of the puzzles file
+     */
     public SudokuModel(Path puzzleFile) {
         assert puzzleFile != null : "puzzleFile must not be null";
 
@@ -50,32 +60,85 @@ public class SudokuModel extends Observable {
         assert invariant() : "model invariant failed after construction";
     }
 
-    // Returns the value at one board position.
+    /**
+     * Returns the value at one board position.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8.
+     *
+     * Postconditions:
+     * the board is not changed and the returned value is between 0 and 9.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return the value at the cell, where 0 means empty
+     */
     public int getValueAt(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
         assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before reading value";
         validateCoordinates(row, col);
-        return board[row][col].getValue();
+        int result = board[row][col].getValue();
+        assert isValueInRange(result) : "returned value must be in range 0-9";
+        assert invariant() : "reading value must not change model state";
+        return result;
     }
 
-    // Returns true if the cell was part of the original puzzle.
+    /**
+     * Returns whether a cell was part of the original puzzle.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8.
+     *
+     * Postconditions:
+     * the board is not changed.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return true if the cell is pre-filled
+     */
     public boolean isPreFilled(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
         assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before reading pre-filled state";
         validateCoordinates(row, col);
-        return board[row][col].isPreFilled();
+        boolean result = board[row][col].isPreFilled();
+        assert invariant() : "reading pre-filled state must not change model state";
+        return result;
     }
 
-    // Returns true if the user is allowed to change this cell.
+    /**
+     * Returns whether a cell can be edited by the user.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8.
+     *
+     * Postconditions:
+     * the board is not changed.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return true if the cell is not pre-filled
+     */
     public boolean isEditable(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
         assert isCoordinateInRange(col) : "col must be in range 0-8";
+        assert invariant() : "model invariant failed before reading editable state";
         validateCoordinates(row, col);
-        return !board[row][col].isPreFilled();
+        boolean result = !board[row][col].isPreFilled();
+        assert invariant() : "reading editable state must not change model state";
+        return result;
     }
 
     /**
      * Sets a value in an editable cell.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8, value is between 1 and 9, and the cell is editable.
+     *
+     * Postconditions:
+     * if the move is accepted, the cell stores value, one undo move is saved, and observers are notified.
+     * if the move is rejected, the board is not changed.
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -103,12 +166,21 @@ public class SudokuModel extends Observable {
         board[row][col] = new Cell(value, false);
         notifyModelChanged();
 
+        assert board[row][col].getValue() == value : "cell value was not updated";
+        assert !board[row][col].isPreFilled() : "editable cell became pre-filled";
         assert invariant() : "model invariant failed after setting value";
         return true;
     }
 
     /**
      * Clears an editable cell.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8, and the cell is editable.
+     *
+     * Postconditions:
+     * if the clear is accepted, the cell value becomes 0, one undo move is saved, and observers are notified.
+     * if the clear is rejected, the board is not changed.
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -130,12 +202,21 @@ public class SudokuModel extends Observable {
         board[row][col] = new Cell(EMPTY_VALUE, false);
         notifyModelChanged();
 
+        assert board[row][col].getValue() == EMPTY_VALUE : "cell was not cleared";
+        assert !board[row][col].isPreFilled() : "editable cell became pre-filled";
         assert invariant() : "model invariant failed after clearing value";
         return true;
     }
 
     /**
      * Undoes the last user change.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * if a move exists, the changed editable cell is restored to its old value and observers are notified.
+     * if no move exists, the board is not changed.
      *
      * @return true if a move was undone
      */
@@ -155,22 +236,43 @@ public class SudokuModel extends Observable {
         board[move.getRow()][move.getCol()] = new Cell(move.getOldValue(), false);
         notifyModelChanged();
 
+        assert board[move.getRow()][move.getCol()].getValue() == move.getOldValue()
+                : "undo did not restore old value";
+        assert !board[move.getRow()][move.getCol()].isPreFilled() : "undo changed pre-filled state";
         assert invariant() : "model invariant failed after undo";
         return true;
     }
 
     /**
      * Restores the board to the starting puzzle.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the board matches the initial board, the undo stack is empty, and observers are notified.
      */
     public void reset() {
         assert invariant() : "model invariant failed before reset";
         board = copyBoard(initialBoard);
         undoStack.clear();
         notifyModelChanged();
+        assert boardsMatch(board, initialBoard) : "reset board does not match initial board";
+        assert undoStack.isEmpty() : "undo stack should be empty after reset";
         assert invariant() : "model invariant failed after reset";
     }
 
-    // Checks whether the puzzle is completely and correctly filled.
+    /**
+     * Checks whether the puzzle is completely and correctly filled.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the board is not changed and the result is true only when every cell is non-zero and the board is valid.
+     *
+     * @return true if the puzzle is complete
+     */
     public boolean isComplete() {
         assert invariant() : "model invariant failed before completion check";
         boolean result = isFilled() && isBoardValid();
@@ -178,7 +280,15 @@ public class SudokuModel extends Observable {
         return result;
     }
 
-    // Starts another puzzle.
+    /**
+     * Starts another puzzle.
+     *
+     * Preconditions:
+     * at least one puzzle has been loaded.
+     *
+     * Postconditions:
+     * the board is initialized from the selected puzzle, the undo stack is empty, and observers are notified.
+     */
     public void newGame() {
         assert invariant() : "model invariant failed before new game";
         if (randomPuzzleSelectionEnabled) {
@@ -190,10 +300,25 @@ public class SudokuModel extends Observable {
         initializeBoard(PuzzleLoader.parsePuzzle(allPuzzles.get(currentPuzzleIndex)));
         undoStack.clear();
         notifyModelChanged();
+        assert boardsMatch(board, initialBoard) : "new game board does not match initial board";
+        assert undoStack.isEmpty() : "undo stack should be empty after new game";
         assert invariant() : "model invariant failed after new game";
     }
 
-    // Fills one empty editable cell with a solved value.
+    /**
+     * Fills one empty editable cell with a solved value.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8, the cell is editable, and the cell is empty.
+     *
+     * Postconditions:
+     * if the hint is accepted, the cell stores a value from 1 to 9, one undo move is saved, and observers are notified.
+     * if the hint is rejected, the board is not changed.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return true if a hint was revealed
+     */
     public boolean revealHint(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
         assert isCoordinateInRange(col) : "col must be in range 0-8";
@@ -215,11 +340,25 @@ public class SudokuModel extends Observable {
         board[row][col] = new Cell(solvedValue, false);
         notifyModelChanged();
 
+        assert isInputValue(board[row][col].getValue()) : "hint must fill a value from 1 to 9";
+        assert !board[row][col].isPreFilled() : "hint must not create a pre-filled cell";
         assert invariant() : "model invariant failed after hint";
         return true;
     }
 
-    // Checks whether one cell follows row, column, and box rules.
+    /**
+     * Checks whether one cell follows row, column, and box rules.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8.
+     *
+     * Postconditions:
+     * the board is not changed.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return true if the cell is valid
+     */
     public boolean isCellValid(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
         assert isCoordinateInRange(col) : "col must be in range 0-8";
@@ -240,7 +379,17 @@ public class SudokuModel extends Observable {
         return result;
     }
 
-    // Checks whether the whole board has no duplicate numbers.
+    /**
+     * Checks whether the whole board has no duplicate numbers.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the board is not changed.
+     *
+     * @return true if all rows, columns, and boxes are valid
+     */
     public boolean isBoardValid() {
         assert invariant() : "model invariant failed before checking board";
         boolean result = true;
@@ -264,7 +413,19 @@ public class SudokuModel extends Observable {
         return result;
     }
 
-    // Returns true when a cell should be shown as invalid.
+    /**
+     * Returns whether a cell should be shown as invalid.
+     *
+     * Preconditions:
+     * row and col are between 0 and 8.
+     *
+     * Postconditions:
+     * the board is not changed.
+     *
+     * @param row the row using the internal 0-8 coordinate system
+     * @param col the column using the internal 0-8 coordinate system
+     * @return true if validation feedback is enabled and the cell is invalid
+     */
     public boolean isCellInvalid(int row, int col) {
         assert isCoordinateInRange(row) : "row must be in range 0-8";
         assert isCoordinateInRange(col) : "col must be in range 0-8";
@@ -276,55 +437,138 @@ public class SudokuModel extends Observable {
         return result;
     }
 
-    // Returns whether invalid entries should be shown to the user.
+    /**
+     * Returns whether invalid entries should be shown to the user.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the model state is not changed.
+     *
+     * @return true if validation feedback is enabled
+     */
     public boolean isValidationFeedbackEnabled() {
         assert invariant() : "model invariant failed before reading validation flag";
-        return validationFeedbackEnabled;
+        boolean result = validationFeedbackEnabled;
+        assert invariant() : "reading validation flag must not change model state";
+        return result;
     }
 
-    // Changes whether invalid entries should be shown to the user.
+    /**
+     * Changes whether invalid entries should be shown to the user.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the flag equals enabled and observers are notified if the value changed.
+     *
+     * @param enabled the new validation feedback setting
+     */
     public void setValidationFeedbackEnabled(boolean enabled) {
         assert invariant() : "model invariant failed before changing validation flag";
         if (validationFeedbackEnabled != enabled) {
             validationFeedbackEnabled = enabled;
             notifyModelChanged();
         }
+        assert validationFeedbackEnabled == enabled : "validation flag was not updated";
         assert invariant() : "model invariant failed after changing validation flag";
     }
 
-    // Returns whether hints are enabled.
+    /**
+     * Returns whether hints are enabled.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the model state is not changed.
+     *
+     * @return true if hints are enabled
+     */
     public boolean isHintEnabled() {
         assert invariant() : "model invariant failed before reading hint flag";
-        return hintEnabled;
+        boolean result = hintEnabled;
+        assert invariant() : "reading hint flag must not change model state";
+        return result;
     }
 
-    // Changes whether hints are enabled.
+    /**
+     * Changes whether hints are enabled.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the flag equals enabled and observers are notified if the value changed.
+     *
+     * @param enabled the new hint setting
+     */
     public void setHintEnabled(boolean enabled) {
         assert invariant() : "model invariant failed before changing hint flag";
         if (hintEnabled != enabled) {
             hintEnabled = enabled;
             notifyModelChanged();
         }
+        assert hintEnabled == enabled : "hint flag was not updated";
         assert invariant() : "model invariant failed after changing hint flag";
     }
 
-    // Returns whether new games should use random puzzle selection.
+    /**
+     * Returns whether new games should use random puzzle selection.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the model state is not changed.
+     *
+     * @return true if random puzzle selection is enabled
+     */
     public boolean isRandomPuzzleSelectionEnabled() {
         assert invariant() : "model invariant failed before reading random flag";
-        return randomPuzzleSelectionEnabled;
+        boolean result = randomPuzzleSelectionEnabled;
+        assert invariant() : "reading random flag must not change model state";
+        return result;
     }
 
-    // Changes whether new games should use random puzzle selection.
+    /**
+     * Changes whether new games should use random puzzle selection.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the flag equals enabled and observers are notified if the value changed.
+     *
+     * @param enabled the new random puzzle setting
+     */
     public void setRandomPuzzleSelectionEnabled(boolean enabled) {
         assert invariant() : "model invariant failed before changing random flag";
         if (randomPuzzleSelectionEnabled != enabled) {
             randomPuzzleSelectionEnabled = enabled;
             notifyModelChanged();
         }
+        assert randomPuzzleSelectionEnabled == enabled : "random flag was not updated";
         assert invariant() : "model invariant failed after changing random flag";
     }
 
-    // Checks the main rules that should always be true inside the model.
+    /**
+     * Checks the class invariants for this model.
+     *
+     * Class invariants:
+     * board and initialBoard are 9x9, all cells are not null, all cell values are 0-9,
+     * allPuzzles is not empty, undoStack is not null, and pre-filled values stay fixed.
+     *
+     * Preconditions:
+     * none.
+     *
+     * Postconditions:
+     * the model state is not changed.
+     *
+     * @return true if the model invariants hold
+     */
     public boolean invariant() {
         return hasValidBoardShape(board)
                 && hasValidBoardShape(initialBoard)
@@ -481,6 +725,20 @@ public class SudokuModel extends Observable {
             }
         }
         return copy;
+    }
+
+    private boolean boardsMatch(Cell[][] firstBoard, Cell[][] secondBoard) {
+        if (!hasValidBoardShape(firstBoard) || !hasValidBoardShape(secondBoard)) {
+            return false;
+        }
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                if (!firstBoard[row][col].equals(secondBoard[row][col])) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private int solveCell(int row, int col) {

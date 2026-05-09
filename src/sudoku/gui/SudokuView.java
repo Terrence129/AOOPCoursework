@@ -6,12 +6,15 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -27,6 +30,11 @@ public class SudokuView implements Observer {
     private final SudokuController controller;
     private final JFrame frame;
     private final JButton[][] cellButtons;
+    private final JButton eraseButton;
+    private final JButton undoButton;
+    private final JButton hintButton;
+    private final JButton resetButton;
+    private final JButton newGameButton;
     private final JCheckBox validationFeedbackCheckBox;
     private final JCheckBox hintEnabledCheckBox;
     private final JCheckBox randomPuzzleCheckBox;
@@ -46,6 +54,11 @@ public class SudokuView implements Observer {
         this.controller = controller;
         this.frame = new JFrame("Sudoku");
         this.cellButtons = new JButton[BOARD_SIZE][BOARD_SIZE];
+        this.eraseButton = new JButton("Erase");
+        this.undoButton = new JButton("Undo");
+        this.hintButton = new JButton("Hint");
+        this.resetButton = new JButton("Reset");
+        this.newGameButton = new JButton("New Game");
         this.validationFeedbackCheckBox = new JCheckBox("Validation Feedback");
         this.hintEnabledCheckBox = new JCheckBox("Hint Enabled");
         this.randomPuzzleCheckBox = new JCheckBox("Random Puzzle");
@@ -79,6 +92,14 @@ public class SudokuView implements Observer {
     private void buildFrame() {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
+        frame.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent event) {
+                if (event.getKeyChar() >= '1' && event.getKeyChar() <= '9') {
+                    controller.onNumberInput(event.getKeyChar() - '0');
+                }
+            }
+        });
         frame.add(createCheckBoxPanel(), BorderLayout.NORTH);
         frame.add(createBoardPanel(), BorderLayout.CENTER);
         frame.add(createButtonPanel(), BorderLayout.SOUTH);
@@ -91,17 +112,17 @@ public class SudokuView implements Observer {
         JPanel panel = new JPanel();
         validationFeedbackCheckBox.addActionListener(event -> {
             if (!updatingView) {
-                controller.setValidationFeedbackEnabled(validationFeedbackCheckBox.isSelected());
+                controller.onValidationFeedbackChanged(validationFeedbackCheckBox.isSelected());
             }
         });
         hintEnabledCheckBox.addActionListener(event -> {
             if (!updatingView) {
-                controller.setHintEnabled(hintEnabledCheckBox.isSelected());
+                controller.onHintEnabledChanged(hintEnabledCheckBox.isSelected());
             }
         });
         randomPuzzleCheckBox.addActionListener(event -> {
             if (!updatingView) {
-                controller.setRandomPuzzleSelectionEnabled(randomPuzzleCheckBox.isSelected());
+                controller.onRandomPuzzleChanged(randomPuzzleCheckBox.isSelected());
             }
         });
 
@@ -128,23 +149,17 @@ public class SudokuView implements Observer {
         button.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 22));
         button.setFocusPainted(false);
         button.setBorder(createCellBorder(row, col));
-        button.addActionListener(event -> controller.selectCell(row, col));
+        button.addActionListener(event -> controller.onCellClicked(row, col));
         return button;
     }
 
     private JPanel createButtonPanel() {
         JPanel panel = new JPanel();
-        JButton eraseButton = new JButton("Erase");
-        JButton undoButton = new JButton("Undo");
-        JButton hintButton = new JButton("Hint");
-        JButton resetButton = new JButton("Reset");
-        JButton newGameButton = new JButton("New Game");
-
-        eraseButton.addActionListener(event -> controller.eraseSelectedCell());
-        undoButton.addActionListener(event -> controller.undo());
-        hintButton.addActionListener(event -> controller.revealHint());
-        resetButton.addActionListener(event -> controller.reset());
-        newGameButton.addActionListener(event -> controller.newGame());
+        eraseButton.addActionListener(event -> controller.onEraseClicked());
+        undoButton.addActionListener(event -> controller.onUndoClicked());
+        hintButton.addActionListener(event -> controller.onHintClicked());
+        resetButton.addActionListener(event -> controller.onResetClicked());
+        newGameButton.addActionListener(event -> controller.onNewGameClicked());
 
         panel.add(eraseButton);
         panel.add(undoButton);
@@ -152,6 +167,40 @@ public class SudokuView implements Observer {
         panel.add(resetButton);
         panel.add(newGameButton);
         return panel;
+    }
+
+    /**
+     * Enables or disables the Erase button.
+     *
+     * @param enabled true if the button should be enabled
+     */
+    public void setEraseButtonEnabled(boolean enabled) {
+        eraseButton.setEnabled(enabled);
+    }
+
+    /**
+     * Enables or disables the Undo button.
+     *
+     * @param enabled true if the button should be enabled
+     */
+    public void setUndoButtonEnabled(boolean enabled) {
+        undoButton.setEnabled(enabled);
+    }
+
+    /**
+     * Enables or disables the Hint button.
+     *
+     * @param enabled true if the button should be enabled
+     */
+    public void setHintButtonEnabled(boolean enabled) {
+        hintButton.setEnabled(enabled);
+    }
+
+    /**
+     * Shows the completion message.
+     */
+    public void showCompletionMessage() {
+        JOptionPane.showMessageDialog(frame, "Puzzle completed!");
     }
 
     private void refreshCells() {

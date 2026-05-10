@@ -33,6 +33,9 @@ public class SudokuCLI {
         while (running) {
             printBoard();
             System.out.print("sudoku> ");
+            if (!scanner.hasNextLine()) {
+                break;
+            }
             String input = scanner.nextLine().trim();
             if (!input.isEmpty()) {
                 running = handleCommand(input);

@@ -2,19 +2,9 @@ package sudoku.gui;
 
 import sudoku.model.SudokuModel;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.GridLayout;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -22,6 +12,7 @@ import java.util.Observer;
 public class SudokuView implements Observer {
     private static final int BOARD_SIZE = 9;
     private static final int EMPTY_VALUE = 0;
+    private static final Dimension CELL_SIZE = new Dimension(55, 55);
     private static final Color NORMAL_BACKGROUND = Color.WHITE;
     private static final Color PREFILLED_BACKGROUND = new Color(230, 230, 230);
     private static final Color INVALID_BACKGROUND = new Color(255, 180, 180);
@@ -65,6 +56,7 @@ public class SudokuView implements Observer {
 
         buildFrame();
         model.addObserver(this);
+        controller.setView(this);
         update(model, null);
     }
 
@@ -92,14 +84,7 @@ public class SudokuView implements Observer {
     private void buildFrame() {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
-        frame.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent event) {
-                if (event.getKeyChar() >= '1' && event.getKeyChar() <= '9') {
-                    controller.onNumberInput(event.getKeyChar() - '0');
-                }
-            }
-        });
+        addNumberKeyBindings();
         frame.add(createCheckBoxPanel(), BorderLayout.NORTH);
         frame.add(createBoardPanel(), BorderLayout.CENTER);
         frame.add(createButtonPanel(), BorderLayout.SOUTH);
@@ -108,19 +93,37 @@ public class SudokuView implements Observer {
         frame.setVisible(true);
     }
 
+    private void addNumberKeyBindings() {
+        JRootPane rootPane = frame.getRootPane();
+        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = rootPane.getActionMap();
+        for (int number = 1; number <= BOARD_SIZE; number++) {
+            final int selectedNumber = number;
+            String actionName = "number" + number;
+            inputMap.put(KeyStroke.getKeyStroke(Character.forDigit(number, 10)), actionName);
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD0 + number, 0), actionName);
+            actionMap.put(actionName, new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent event) {
+                    controller.onNumberInput(selectedNumber);
+                }
+            });
+        }
+    }
+
     private JPanel createCheckBoxPanel() {
         JPanel panel = new JPanel();
-        validationFeedbackCheckBox.addActionListener(event -> {
+        validationFeedbackCheckBox.addActionListener((ActionEvent event) -> {
             if (!updatingView) {
                 controller.onValidationFeedbackChanged(validationFeedbackCheckBox.isSelected());
             }
         });
-        hintEnabledCheckBox.addActionListener(event -> {
+        hintEnabledCheckBox.addActionListener((ActionEvent event) -> {
             if (!updatingView) {
                 controller.onHintEnabledChanged(hintEnabledCheckBox.isSelected());
             }
         });
-        randomPuzzleCheckBox.addActionListener(event -> {
+        randomPuzzleCheckBox.addActionListener((ActionEvent event) -> {
             if (!updatingView) {
                 controller.onRandomPuzzleChanged(randomPuzzleCheckBox.isSelected());
             }
@@ -148,18 +151,21 @@ public class SudokuView implements Observer {
         JButton button = new JButton();
         button.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 22));
         button.setFocusPainted(false);
+        button.setPreferredSize(CELL_SIZE);
+        button.setMinimumSize(CELL_SIZE);
+        button.setMargin(new Insets(0, 0, 0, 0));
         button.setBorder(createCellBorder(row, col));
-        button.addActionListener(event -> controller.onCellClicked(row, col));
+        button.addActionListener((ActionEvent event) -> {controller.onCellClicked(row, col);});
         return button;
     }
 
     private JPanel createButtonPanel() {
         JPanel panel = new JPanel();
-        eraseButton.addActionListener(event -> controller.onEraseClicked());
-        undoButton.addActionListener(event -> controller.onUndoClicked());
-        hintButton.addActionListener(event -> controller.onHintClicked());
-        resetButton.addActionListener(event -> controller.onResetClicked());
-        newGameButton.addActionListener(event -> controller.onNewGameClicked());
+        eraseButton.addActionListener((ActionEvent event) -> {controller.onEraseClicked();});
+        undoButton.addActionListener((ActionEvent event) -> {controller.onUndoClicked();});
+        hintButton.addActionListener((ActionEvent event) -> {controller.onHintClicked();});
+        resetButton.addActionListener((ActionEvent event) -> {controller.onResetClicked();});
+        newGameButton.addActionListener((ActionEvent event) -> {controller.onNewGameClicked();});
 
         panel.add(eraseButton);
         panel.add(undoButton);

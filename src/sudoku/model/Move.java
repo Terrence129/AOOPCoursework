@@ -1,4 +1,5 @@
 package sudoku.model;
+
 /**
  * @description:
  * @author: chenyaqi

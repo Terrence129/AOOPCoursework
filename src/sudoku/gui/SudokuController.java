@@ -12,7 +12,6 @@ public class SudokuController {
     private SudokuView view;
     private int selectedRow;
     private int selectedCol;
-    private int undoMoveCount;
 
     /**
      * Creates a controller for the Sudoku model.
@@ -24,7 +23,6 @@ public class SudokuController {
         this.model = model;
         this.selectedRow = NO_SELECTION;
         this.selectedCol = NO_SELECTION;
-        this.undoMoveCount = 0;
     }
 
     /**
@@ -54,6 +52,7 @@ public class SudokuController {
             clearSelection();
         }
         updateButtonStates();
+        refreshSelection();
     }
 
     /**
@@ -69,7 +68,6 @@ public class SudokuController {
 
         boolean changed = model.setValue(selectedRow, selectedCol, number);
         if (changed) {
-            undoMoveCount++;
             checkCompletion();
         }
         updateButtonStates();
@@ -84,9 +82,6 @@ public class SudokuController {
         }
 
         boolean changed = model.clearValue(selectedRow, selectedCol);
-        if (changed) {
-            undoMoveCount++;
-        }
         updateButtonStates();
     }
 
@@ -94,10 +89,7 @@ public class SudokuController {
      * Handles the Undo button.
      */
     public void onUndoClicked() {
-        boolean changed = model.undo();
-        if (changed && undoMoveCount > 0) {
-            undoMoveCount--;
-        }
+        model.undo();
         updateButtonStates();
     }
 
@@ -111,7 +103,6 @@ public class SudokuController {
 
         boolean changed = model.revealHint(selectedRow, selectedCol);
         if (changed) {
-            undoMoveCount++;
             checkCompletion();
         }
         updateButtonStates();
@@ -123,7 +114,6 @@ public class SudokuController {
     public void onResetClicked() {
         model.reset();
         clearSelection();
-        undoMoveCount = 0;
         updateButtonStates();
     }
 
@@ -133,7 +123,6 @@ public class SudokuController {
     public void onNewGameClicked() {
         model.newGame();
         clearSelection();
-        undoMoveCount = 0;
         updateButtonStates();
     }
 
@@ -167,6 +156,64 @@ public class SudokuController {
         updateButtonStates();
     }
 
+    /**
+     * Handles keyboard movement between editable cells.
+     *
+     * @param rowChange the row movement
+     * @param colChange the column movement
+     */
+    public void onSelectionMove(int rowChange, int colChange) {
+        if (selectedRow == NO_SELECTION || selectedCol == NO_SELECTION) {
+            selectFirstEditableCell();
+            updateButtonStates();
+            refreshSelection();
+            return;
+        }
+
+        int startRow = selectedRow == NO_SELECTION ? 0 : selectedRow;
+        int startCol = selectedCol == NO_SELECTION ? 0 : selectedCol;
+        int row = startRow;
+        int col = startCol;
+
+        for (int step = 0; step < MAX_NUMBER * MAX_NUMBER; step++) {
+            row = wrapCoordinate(row + rowChange);
+            col = wrapCoordinate(col + colChange);
+            if (model.isEditable(row, col)) {
+                selectedRow = row;
+                selectedCol = col;
+                updateButtonStates();
+                refreshSelection();
+                return;
+            }
+        }
+        clearSelection();
+        updateButtonStates();
+    }
+
+    /**
+     * Handles an input key that is not a valid Sudoku digit.
+     *
+     * @param input the rejected input text
+     */
+    public void onInvalidInput(String input) {
+        if (view != null) {
+            view.showInvalidInputMessage(input);
+        }
+    }
+
+    /**
+     * Returns whether a cell is currently selected.
+     *
+     * @param row the row to check
+     * @param col the column to check
+     * @return true if this cell is selected
+     */
+    public boolean isSelectedCell(int row, int col) {
+        assert row >= 0 && row < MAX_NUMBER : "row must be in range 0-8";
+        assert col >= 0 && col < MAX_NUMBER : "col must be in range 0-8";
+        return selectedRow == row && selectedCol == col;
+    }
+
     private boolean hasEditableSelection() {
         return selectedRow != NO_SELECTION
                 && selectedCol != NO_SELECTION
@@ -183,8 +230,37 @@ public class SudokuController {
             return;
         }
         view.setEraseButtonEnabled(hasEditableSelection());
-        view.setUndoButtonEnabled(undoMoveCount > 0);
+        view.setUndoButtonEnabled(model.canUndo());
         view.setHintButtonEnabled(model.isHintEnabled() && hasEditableSelection());
+    }
+
+    private void refreshSelection() {
+        if (view != null) {
+            view.refreshSelection();
+        }
+    }
+
+    private void selectFirstEditableCell() {
+        for (int row = 0; row < MAX_NUMBER; row++) {
+            for (int col = 0; col < MAX_NUMBER; col++) {
+                if (model.isEditable(row, col)) {
+                    selectedRow = row;
+                    selectedCol = col;
+                    return;
+                }
+            }
+        }
+        clearSelection();
+    }
+
+    private int wrapCoordinate(int coordinate) {
+        if (coordinate < 0) {
+            return MAX_NUMBER - 1;
+        }
+        if (coordinate >= MAX_NUMBER) {
+            return 0;
+        }
+        return coordinate;
     }
 
     private void checkCompletion() {

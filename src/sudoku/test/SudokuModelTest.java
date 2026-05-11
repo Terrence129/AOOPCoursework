@@ -41,17 +41,20 @@ class SudokuModelTest {
     }
 
     @Test
-    void validationFeedbackRejectsDuplicateButDisabledFeedbackAllowsTemporaryInvalidState() {
-        // Scenario: validation feedback is on first, so a row duplicate is rejected.
-        // Then validation feedback is off, so the same duplicate can be entered as a temporary invalid state.
+    void validationFeedbackShowsInvalidCellButDoesNotRejectTemporaryInvalidState() {
+        // Scenario: validation feedback is on first, so a row duplicate is accepted but marked invalid.
+        // Then validation feedback is off, so the duplicate remains but no invalid-cell feedback is shown.
         // The board is filled after that, but isComplete() must still be false because the row is invalid.
         assertTrue(model.setValue(0, 0, 1));
         assertTrue(model.isValidationFeedbackEnabled());
-        assertFalse(model.setValue(0, 1, 1));
-        assertEquals(0, model.getValueAt(0, 1));
+        assertTrue(model.setValue(0, 1, 1));
+        assertEquals(1, model.getValueAt(0, 1));
+        assertTrue(model.isCellInvalid(0, 0));
+        assertTrue(model.isCellInvalid(0, 1));
 
         model.setValidationFeedbackEnabled(false);
-        assertTrue(model.setValue(0, 1, 1));
+        assertFalse(model.isCellInvalid(0, 0));
+        assertFalse(model.isCellInvalid(0, 1));
         fillBoardExcept(0, 0, 0, 1);
 
         assertFalse(model.isBoardValid());
@@ -60,8 +63,9 @@ class SudokuModelTest {
 
     @Test
     void undoRestoresOldValueAndResetKeepsOriginalPuzzleCells() {
-        // Scenario: the user enters a value in an editable cell.
-        // undo() should restore that cell to 0, and reset() should clear user input while keeping original clues.
+        // Scenario: the user enters values in editable cells.
+        // undo() should restore only the latest cell because the coursework requires single-level undo.
+        // reset() should clear user input while keeping original clues.
         model = createModelWithPuzzle("100000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
         assertTrue(model.isPreFilled(0, 0));
@@ -69,14 +73,18 @@ class SudokuModelTest {
 
         assertTrue(model.setValue(0, 1, 2));
         assertEquals(2, model.getValueAt(0, 1));
+        assertTrue(model.setValue(0, 2, 3));
+        assertEquals(3, model.getValueAt(0, 2));
 
         assertTrue(model.undo());
-        assertEquals(0, model.getValueAt(0, 1));
+        assertEquals(0, model.getValueAt(0, 2));
+        assertEquals(2, model.getValueAt(0, 1));
+        assertFalse(model.undo());
 
-        assertTrue(model.setValue(0, 1, 2));
         model.reset();
 
         assertEquals(0, model.getValueAt(0, 1));
+        assertEquals(0, model.getValueAt(0, 2));
         assertEquals(1, model.getValueAt(0, 0));
         assertTrue(model.isPreFilled(0, 0));
     }

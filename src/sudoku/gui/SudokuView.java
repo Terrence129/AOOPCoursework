@@ -13,9 +13,11 @@ public class SudokuView implements Observer {
     private static final int BOARD_SIZE = 9;
     private static final int EMPTY_VALUE = 0;
     private static final Dimension CELL_SIZE = new Dimension(55, 55);
+    private static final Dimension NUMBER_BUTTON_SIZE = new Dimension(64, 58);
     private static final Color NORMAL_BACKGROUND = Color.WHITE;
     private static final Color PREFILLED_BACKGROUND = new Color(230, 230, 230);
     private static final Color INVALID_BACKGROUND = new Color(255, 180, 180);
+    private static final Color SELECTED_BORDER = new Color(40, 110, 220);
 
     private final SudokuModel model;
     private final SudokuController controller;
@@ -85,9 +87,11 @@ public class SudokuView implements Observer {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         addNumberKeyBindings();
+        addNavigationKeyBindings();
+        addInvalidInputHandler();
         frame.add(createCheckBoxPanel(), BorderLayout.NORTH);
         frame.add(createBoardPanel(), BorderLayout.CENTER);
-        frame.add(createButtonPanel(), BorderLayout.SOUTH);
+        frame.add(createControlPanel(), BorderLayout.SOUTH);
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
@@ -109,6 +113,70 @@ public class SudokuView implements Observer {
                 }
             });
         }
+    }
+
+    private void addNavigationKeyBindings() {
+        JRootPane rootPane = frame.getRootPane();
+        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = rootPane.getActionMap();
+        addNavigationAction(inputMap, actionMap, "moveUp", KeyEvent.VK_UP, -1, 0);
+        addNavigationAction(inputMap, actionMap, "moveDown", KeyEvent.VK_DOWN, 1, 0);
+        addNavigationAction(inputMap, actionMap, "moveLeft", KeyEvent.VK_LEFT, 0, -1);
+        addNavigationAction(inputMap, actionMap, "moveRight", KeyEvent.VK_RIGHT, 0, 1);
+    }
+
+    private void addNavigationAction(InputMap inputMap, ActionMap actionMap, String name,
+                                     int keyCode, final int rowChange, final int colChange) {
+        inputMap.put(KeyStroke.getKeyStroke(keyCode, 0), name);
+        actionMap.put(name, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                controller.onSelectionMove(rowChange, colChange);
+            }
+        });
+    }
+
+    private void addInvalidInputHandler() {
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(new KeyEventDispatcher() {
+            @Override
+            public boolean dispatchKeyEvent(KeyEvent event) {
+                if (frame.isActive() && event.getID() == KeyEvent.KEY_PRESSED && handleArrowKey(event.getKeyCode())) {
+                    return true;
+                }
+                if (frame.isActive()
+                        && event.getID() == KeyEvent.KEY_TYPED
+                        && isRejectedTypedKey(event.getKeyChar())) {
+                    controller.onInvalidInput(String.valueOf(event.getKeyChar()));
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    private boolean handleArrowKey(int keyCode) {
+        if (keyCode == KeyEvent.VK_UP) {
+            controller.onSelectionMove(-1, 0);
+            return true;
+        }
+        if (keyCode == KeyEvent.VK_DOWN) {
+            controller.onSelectionMove(1, 0);
+            return true;
+        }
+        if (keyCode == KeyEvent.VK_LEFT) {
+            controller.onSelectionMove(0, -1);
+            return true;
+        }
+        if (keyCode == KeyEvent.VK_RIGHT) {
+            controller.onSelectionMove(0, 1);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isRejectedTypedKey(char keyChar) {
+        return !Character.isISOControl(keyChar)
+                && (keyChar < '1' || keyChar > '9');
     }
 
     private JPanel createCheckBoxPanel() {
@@ -150,12 +218,40 @@ public class SudokuView implements Observer {
     private JButton createCellButton(final int row, final int col) {
         JButton button = new JButton();
         button.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 22));
-        button.setFocusPainted(false);
+        button.setFocusPainted(true);
         button.setPreferredSize(CELL_SIZE);
         button.setMinimumSize(CELL_SIZE);
         button.setMargin(new Insets(0, 0, 0, 0));
         button.setBorder(createCellBorder(row, col));
         button.addActionListener((ActionEvent event) -> {controller.onCellClicked(row, col);});
+        return button;
+    }
+
+    private JPanel createControlPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(createNumberKeyboardPanel(), BorderLayout.CENTER);
+        panel.add(createButtonPanel(), BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private JPanel createNumberKeyboardPanel() {
+        JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        JPanel panel = new JPanel(new GridLayout(3, 3, 4, 4));
+        wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        for (int number = 1; number <= BOARD_SIZE; number++) {
+            panel.add(createNumberButton(number));
+        }
+        wrapper.add(panel);
+        return wrapper;
+    }
+
+    private JButton createNumberButton(final int number) {
+        JButton button = new JButton(String.valueOf(number));
+        button.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 22));
+        button.setPreferredSize(NUMBER_BUTTON_SIZE);
+        button.setMinimumSize(NUMBER_BUTTON_SIZE);
+        button.setFocusPainted(false);
+        button.addActionListener((ActionEvent event) -> {controller.onNumberInput(number);});
         return button;
     }
 
@@ -209,6 +305,33 @@ public class SudokuView implements Observer {
         JOptionPane.showMessageDialog(frame, "Puzzle completed!");
     }
 
+    /**
+     * Shows a message when the player types a rejected input.
+     *
+     * @param input the rejected input text
+     */
+    public void showInvalidInputMessage(String input) {
+        JOptionPane.showMessageDialog(frame,
+                "Only digits 1-9 are valid inputs.",
+                "Invalid input",
+                JOptionPane.WARNING_MESSAGE);
+    }
+
+    /**
+     * Moves keyboard focus to the selected cell.
+     */
+    public void refreshSelection() {
+        refreshCells();
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                if (controller.isSelectedCell(row, col)) {
+                    cellButtons[row][col].requestFocusInWindow();
+                    return;
+                }
+            }
+        }
+    }
+
     private void refreshCells() {
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
@@ -225,6 +348,8 @@ public class SudokuView implements Observer {
 
         button.setText(value == EMPTY_VALUE ? "" : String.valueOf(value));
         button.setEnabled(editable);
+        button.setFocusable(editable);
+        button.setBorder(createCellBorder(row, col));
         button.setForeground(Color.BLACK);
         button.setFont(new Font(Font.SANS_SERIF, preFilled ? Font.BOLD : Font.PLAIN, 22));
         if (model.isCellInvalid(row, col)) {
@@ -235,6 +360,9 @@ public class SudokuView implements Observer {
             button.setBackground(NORMAL_BACKGROUND);
         }
         button.setOpaque(true);
+        if (controller.isSelectedCell(row, col)) {
+            button.requestFocusInWindow();
+        }
     }
 
     private void refreshCheckBoxes() {
@@ -248,6 +376,7 @@ public class SudokuView implements Observer {
         int left = col % 3 == 0 ? 3 : 1;
         int bottom = row == BOARD_SIZE - 1 ? 3 : 1;
         int right = col == BOARD_SIZE - 1 ? 3 : 1;
-        return BorderFactory.createMatteBorder(top, left, bottom, right, Color.BLACK);
+        Color borderColor = controller.isSelectedCell(row, col) ? SELECTED_BORDER : Color.BLACK;
+        return BorderFactory.createMatteBorder(top, left, bottom, right, borderColor);
     }
 }

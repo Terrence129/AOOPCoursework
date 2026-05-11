@@ -32,11 +32,12 @@ public class SudokuModel extends Observable {
     /**
      * Creates a model and loads the first puzzle.
      *
-     * Preconditions:
-     * puzzleFile is not null and points to a readable puzzle file.
+     * @pre puzzleFile != null
+     * @pre PuzzleLoader.loadAllPuzzles(puzzleFile).size() > 0
      *
-     * Postconditions:
-     * the board and initial board are 9x9, puzzles are loaded, and observers are notified.
+     * @post invariant() == true
+     * @post board.length == 9 && initialBoard.length == 9
+     * @post currentPuzzleIndex == 0
      *
      * @param puzzleFile the path of the puzzles file
      */
@@ -63,11 +64,11 @@ public class SudokuModel extends Observable {
     /**
      * Returns the value at one board position.
      *
-     * Preconditions:
-     * row and col are between 0 and 8.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
      *
-     * Postconditions:
-     * the board is not changed and the returned value is between 0 and 9.
+     * @post 0 <= result <= 9
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -87,11 +88,11 @@ public class SudokuModel extends Observable {
     /**
      * Returns whether a cell was part of the original puzzle.
      *
-     * Preconditions:
-     * row and col are between 0 and 8.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
      *
-     * Postconditions:
-     * the board is not changed.
+     * @post result == board[row][col].isPreFilled()
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -110,11 +111,11 @@ public class SudokuModel extends Observable {
     /**
      * Returns whether a cell can be edited by the user.
      *
-     * Preconditions:
-     * row and col are between 0 and 8.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
      *
-     * Postconditions:
-     * the board is not changed.
+     * @post result == !isPreFilled(row, col)
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -133,12 +134,15 @@ public class SudokuModel extends Observable {
     /**
      * Sets a value in an editable cell.
      *
-     * Preconditions:
-     * row and col are between 0 and 8, value is between 1 and 9, and the cell is editable.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
+     * @pre 1 <= value <= 9
+     * @pre isEditable(row, col) == true
      *
-     * Postconditions:
-     * if the move is accepted, the cell stores value, one undo move is saved, and observers are notified.
-     * if the move is rejected, the board is not changed.
+     * @post result == true ==> getValueAt(row, col) == value
+     * @post result == true ==> canUndo() == true
+     * @post result == false ==> board is unchanged
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -156,13 +160,8 @@ public class SudokuModel extends Observable {
             assert invariant() : "failed set must not change model state";
             return false;
         }
-        if (validationFeedbackEnabled && !isValueValidAt(row, col, value)) {
-            assert invariant() : "failed set must not change model state";
-            return false;
-        }
-
         int oldValue = board[row][col].getValue();
-        undoStack.push(new Move(row, col, oldValue, value));
+        saveUndoMove(new Move(row, col, oldValue, value));
         board[row][col] = new Cell(value, false);
         notifyModelChanged();
 
@@ -175,12 +174,14 @@ public class SudokuModel extends Observable {
     /**
      * Clears an editable cell.
      *
-     * Preconditions:
-     * row and col are between 0 and 8, and the cell is editable.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
+     * @pre isEditable(row, col) == true
      *
-     * Postconditions:
-     * if the clear is accepted, the cell value becomes 0, one undo move is saved, and observers are notified.
-     * if the clear is rejected, the board is not changed.
+     * @post result == true ==> getValueAt(row, col) == 0
+     * @post result == true ==> canUndo() == true
+     * @post result == false ==> board is unchanged
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -198,7 +199,7 @@ public class SudokuModel extends Observable {
         }
 
         int oldValue = board[row][col].getValue();
-        undoStack.push(new Move(row, col, oldValue, EMPTY_VALUE));
+        saveUndoMove(new Move(row, col, oldValue, EMPTY_VALUE));
         board[row][col] = new Cell(EMPTY_VALUE, false);
         notifyModelChanged();
 
@@ -211,12 +212,11 @@ public class SudokuModel extends Observable {
     /**
      * Undoes the last user change.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * if a move exists, the changed editable cell is restored to its old value and observers are notified.
-     * if no move exists, the board is not changed.
+     * @post result == true ==> the latest editable cell change is reverted
+     * @post result == false ==> board is unchanged
+     * @post invariant() == true
      *
      * @return true if a move was undone
      */
@@ -244,13 +244,30 @@ public class SudokuModel extends Observable {
     }
 
     /**
+     * Returns whether there is one move that can be undone.
+     *
+     * @pre true
+     *
+     * @post result == !undoStack.isEmpty()
+     * @post invariant() == true
+     *
+     * @return true if one move can be undone
+     */
+    public boolean canUndo() {
+        assert invariant() : "model invariant failed before checking undo state";
+        boolean result = !undoStack.isEmpty();
+        assert invariant() : "checking undo state must not change model state";
+        return result;
+    }
+
+    /**
      * Restores the board to the starting puzzle.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the board matches the initial board, the undo stack is empty, and observers are notified.
+     * @post forall row,col: board[row][col].equals(initialBoard[row][col])
+     * @post undoStack.isEmpty() == true
+     * @post invariant() == true
      */
     public void reset() {
         assert invariant() : "model invariant failed before reset";
@@ -265,11 +282,10 @@ public class SudokuModel extends Observable {
     /**
      * Checks whether the puzzle is completely and correctly filled.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the board is not changed and the result is true only when every cell is non-zero and the board is valid.
+     * @post result == (all cells are non-zero && isBoardValid())
+     * @post invariant() == true
      *
      * @return true if the puzzle is complete
      */
@@ -283,18 +299,18 @@ public class SudokuModel extends Observable {
     /**
      * Starts another puzzle.
      *
-     * Preconditions:
-     * at least one puzzle has been loaded.
+     * @pre allPuzzles != null && allPuzzles.size() > 0
      *
-     * Postconditions:
-     * the board is initialized from the selected puzzle, the undo stack is empty, and observers are notified.
+     * @post forall row,col: board[row][col].equals(initialBoard[row][col])
+     * @post undoStack.isEmpty() == true
+     * @post invariant() == true
      */
     public void newGame() {
         assert invariant() : "model invariant failed before new game";
         if (randomPuzzleSelectionEnabled) {
             currentPuzzleIndex = new Random().nextInt(allPuzzles.size());
         } else {
-            currentPuzzleIndex = (currentPuzzleIndex + 1) % allPuzzles.size();
+            currentPuzzleIndex = 0;
         }
 
         initializeBoard(PuzzleLoader.parsePuzzle(allPuzzles.get(currentPuzzleIndex)));
@@ -308,12 +324,14 @@ public class SudokuModel extends Observable {
     /**
      * Fills one empty editable cell with a solved value.
      *
-     * Preconditions:
-     * row and col are between 0 and 8, the cell is editable, and the cell is empty.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
+     * @pre isEditable(row, col) == true
+     * @pre getValueAt(row, col) == 0
      *
-     * Postconditions:
-     * if the hint is accepted, the cell stores a value from 1 to 9, one undo move is saved, and observers are notified.
-     * if the hint is rejected, the board is not changed.
+     * @post result == true ==> 1 <= getValueAt(row, col) <= 9
+     * @post result == false ==> board is unchanged
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -336,7 +354,7 @@ public class SudokuModel extends Observable {
             return false;
         }
 
-        undoStack.push(new Move(row, col, EMPTY_VALUE, solvedValue));
+        saveUndoMove(new Move(row, col, EMPTY_VALUE, solvedValue));
         board[row][col] = new Cell(solvedValue, false);
         notifyModelChanged();
 
@@ -349,11 +367,11 @@ public class SudokuModel extends Observable {
     /**
      * Checks whether one cell follows row, column, and box rules.
      *
-     * Preconditions:
-     * row and col are between 0 and 8.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
      *
-     * Postconditions:
-     * the board is not changed.
+     * @post result == true ==> the value at row,col has no duplicate in its row, column, or box
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -382,11 +400,10 @@ public class SudokuModel extends Observable {
     /**
      * Checks whether the whole board has no duplicate numbers.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the board is not changed.
+     * @post result == true ==> all rows, columns, and 3x3 boxes contain no duplicates except 0
+     * @post invariant() == true
      *
      * @return true if all rows, columns, and boxes are valid
      */
@@ -416,11 +433,11 @@ public class SudokuModel extends Observable {
     /**
      * Returns whether a cell should be shown as invalid.
      *
-     * Preconditions:
-     * row and col are between 0 and 8.
+     * @pre 0 <= row < 9
+     * @pre 0 <= col < 9
      *
-     * Postconditions:
-     * the board is not changed.
+     * @post result == (isValidationFeedbackEnabled() && !isCellValid(row, col))
+     * @post invariant() == true
      *
      * @param row the row using the internal 0-8 coordinate system
      * @param col the column using the internal 0-8 coordinate system
@@ -440,11 +457,10 @@ public class SudokuModel extends Observable {
     /**
      * Returns whether invalid entries should be shown to the user.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the model state is not changed.
+     * @post result == validationFeedbackEnabled
+     * @post invariant() == true
      *
      * @return true if validation feedback is enabled
      */
@@ -458,11 +474,10 @@ public class SudokuModel extends Observable {
     /**
      * Changes whether invalid entries should be shown to the user.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the flag equals enabled and observers are notified if the value changed.
+     * @post validationFeedbackEnabled == enabled
+     * @post invariant() == true
      *
      * @param enabled the new validation feedback setting
      */
@@ -479,11 +494,10 @@ public class SudokuModel extends Observable {
     /**
      * Returns whether hints are enabled.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the model state is not changed.
+     * @post result == hintEnabled
+     * @post invariant() == true
      *
      * @return true if hints are enabled
      */
@@ -497,11 +511,10 @@ public class SudokuModel extends Observable {
     /**
      * Changes whether hints are enabled.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the flag equals enabled and observers are notified if the value changed.
+     * @post hintEnabled == enabled
+     * @post invariant() == true
      *
      * @param enabled the new hint setting
      */
@@ -518,11 +531,10 @@ public class SudokuModel extends Observable {
     /**
      * Returns whether new games should use random puzzle selection.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the model state is not changed.
+     * @post result == randomPuzzleSelectionEnabled
+     * @post invariant() == true
      *
      * @return true if random puzzle selection is enabled
      */
@@ -536,11 +548,10 @@ public class SudokuModel extends Observable {
     /**
      * Changes whether new games should use random puzzle selection.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the flag equals enabled and observers are notified if the value changed.
+     * @post randomPuzzleSelectionEnabled == enabled
+     * @post invariant() == true
      *
      * @param enabled the new random puzzle setting
      */
@@ -561,11 +572,9 @@ public class SudokuModel extends Observable {
      * board and initialBoard are 9x9, all cells are not null, all cell values are 0-9,
      * allPuzzles is not empty, undoStack is not null, and pre-filled values stay fixed.
      *
-     * Preconditions:
-     * none.
+     * @pre true
      *
-     * Postconditions:
-     * the model state is not changed.
+     * @post result == true iff all listed class invariants hold
      *
      * @return true if the model invariants hold
      */
@@ -629,6 +638,12 @@ public class SudokuModel extends Observable {
     private void notifyModelChanged() {
         setChanged();
         notifyObservers();
+    }
+
+    private void saveUndoMove(Move move) {
+        assert move != null : "move must not be null";
+        undoStack.clear();
+        undoStack.push(move);
     }
 
     private boolean hasValidBoardShape(Cell[][] cells) {

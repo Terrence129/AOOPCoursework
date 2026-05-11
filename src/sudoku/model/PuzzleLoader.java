@@ -7,12 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @description:
- * @author: chenyaqi
- * @email: terrence.yaqi.chen@u.nus.edu
- * @date: 2026/5/11 16:09
- */
+
 // Loads and parses Sudoku puzzle data for the model layer.
 public final class PuzzleLoader {
     private static final int BOARD_SIZE = 9;

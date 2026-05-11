@@ -10,11 +10,6 @@ import java.nio.file.Paths;
 public class SudokuCliMain {
     private static final Path PUZZLE_FILE = Paths.get("resources", "puzzles.txt");
 
-    /**
-     * Starts the CLI program.
-     *
-     * @param args command line arguments, not used
-     */
     public static void main(String[] args) {
         ISudokuModel model = new SudokuModel(PUZZLE_FILE);
         new SudokuCLI(model).run();

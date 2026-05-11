@@ -1,12 +1,6 @@
 package sudoku.model;
 
 /**
- * @description:
- * @author: chenyaqi
- * @email: terrence.yaqi.chen@u.nus.edu
- * @date: 2026/5/11 15:55
- */
-/**
  * Stores one change made by the user so it can be undone.
  */
 public final class Move {

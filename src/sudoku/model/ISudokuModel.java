@@ -1,13 +1,6 @@
 package sudoku.model;
 
 import java.util.Observer;
-/**
- * @description:
- * @author: chenyaqi
- * @email: terrence.yaqi.chen@u.nus.edu
- * @date: 2026/5/11 23:40
- */
-
 
 /**
  * Defines the public operations provided by the Sudoku model.

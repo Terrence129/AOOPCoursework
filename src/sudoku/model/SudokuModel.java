@@ -9,18 +9,8 @@ import java.util.Observable;
 import java.util.Objects;
 import java.util.Random;
 
-/**
- * @description:
- * @author: chenyaqi
- * @email: terrence.yaqi.chen@u.nus.edu
- * @date: 2026/5/11 16:23
- */
+
 // Core model class that stores Sudoku state and basic model settings.
-/**
- * @invariant board and initialBoard are 9x9
- * @invariant all cells are not null and contain values from 0 to 9
- * @invariant pre-filled cells keep their original values
- */
 public class SudokuModel extends Observable implements ISudokuModel {
     private static final int BOARD_SIZE = 9;
     private static final int EMPTY_VALUE = 0;

@@ -2,15 +2,7 @@ package sudoku.model;
 
 import java.util.Objects;
 
-/**
- * @description:
- * @author: chenyaqi
- * @email: terrence.yaqi.chen@u.nus.edu
- * @date: 2026/5/11 15:53
- */
-/**
- * Represents one cell on the Sudoku board.
- */
+
 public final class Cell {
     private final int value;
     private final boolean isPreFilled;

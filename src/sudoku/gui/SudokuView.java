@@ -39,12 +39,6 @@ public class SudokuView implements Observer {
     private final JCheckBox randomPuzzleCheckBox;
     private boolean updatingView;
 
-    /**
-     * Creates the GUI view for the Sudoku model.
-     *
-     * @param model the model that stores game state
-     * @param controller the controller that handles user actions
-     */
     public SudokuView(ISudokuModel model, SudokuController controller) {
         assert model != null : "model must not be null";
         assert controller != null : "controller must not be null";

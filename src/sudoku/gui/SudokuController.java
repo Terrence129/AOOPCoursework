@@ -1,6 +1,6 @@
 package sudoku.gui;
 
-import sudoku.model.SudokuModel;
+import sudoku.model.ISudokuModel;
 
 // Handles GUI events and forwards valid requests to the model.
 public class SudokuController {
@@ -8,7 +8,7 @@ public class SudokuController {
     private static final int MIN_NUMBER = 1;
     private static final int MAX_NUMBER = 9;
 
-    private SudokuModel model;
+    private final ISudokuModel model;
     private SudokuView view;
     private int selectedRow;
     private int selectedCol;
@@ -18,7 +18,7 @@ public class SudokuController {
      *
      * @param model the model that stores game state and rules
      */
-    public SudokuController(SudokuModel model) {
+    public SudokuController(ISudokuModel model) {
         assert model != null : "model must not be null";
         this.model = model;
         this.selectedRow = NO_SELECTION;

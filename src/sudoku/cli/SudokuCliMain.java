@@ -1,5 +1,8 @@
 package sudoku.cli;
 
+import sudoku.model.ISudokuModel;
+import sudoku.model.SudokuModel;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -13,6 +16,7 @@ public class SudokuCliMain {
      * @param args command line arguments, not used
      */
     public static void main(String[] args) {
-        new SudokuCLI(PUZZLE_FILE).run();
+        ISudokuModel model = new SudokuModel(PUZZLE_FILE);
+        new SudokuCLI(model).run();
     }
 }

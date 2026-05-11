@@ -1,5 +1,6 @@
 package sudoku.gui;
 
+import sudoku.model.ISudokuModel;
 import sudoku.model.SudokuModel;
 
 import javax.swing.SwingUtilities;
@@ -28,7 +29,7 @@ public class SudokuGuiMain {
      * Creates the GUI model, controller, and view.
      */
     public static void createAndShowGUI() {
-        SudokuModel model = new SudokuModel(PUZZLE_FILE);
+        ISudokuModel model = new SudokuModel(PUZZLE_FILE);
         SudokuController controller = new SudokuController(model);
         SudokuView view = new SudokuView(model, controller);
     }

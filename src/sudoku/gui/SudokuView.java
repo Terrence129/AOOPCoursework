@@ -1,6 +1,6 @@
 package sudoku.gui;
 
-import sudoku.model.SudokuModel;
+import sudoku.model.ISudokuModel;
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,12 +14,18 @@ public class SudokuView implements Observer {
     private static final int EMPTY_VALUE = 0;
     private static final Dimension CELL_SIZE = new Dimension(55, 55);
     private static final Dimension NUMBER_BUTTON_SIZE = new Dimension(64, 58);
+    private static final Color APP_BACKGROUND = new Color(220, 234, 245);
+    private static final Color PANEL_BACKGROUND = new Color(181, 213, 232);
     private static final Color NORMAL_BACKGROUND = Color.WHITE;
-    private static final Color PREFILLED_BACKGROUND = new Color(230, 230, 230);
+    private static final Color PREFILLED_BACKGROUND = new Color(220, 234, 245);
+    private static final Color BUTTON_BACKGROUND = Color.WHITE;
+    private static final Color BUTTON_TEXT = new Color(20, 52, 75);
+    private static final Color GRID_BORDER = new Color(125, 169, 196);
     private static final Color INVALID_BACKGROUND = new Color(255, 180, 180);
-    private static final Color SELECTED_BORDER = new Color(40, 110, 220);
+    private static final Color SELECTED_BACKGROUND = new Color(198, 226, 243);
+    private static final Color SELECTED_BORDER = new Color(40, 110, 180);
 
-    private final SudokuModel model;
+    private final ISudokuModel model;
     private final SudokuController controller;
     private final JFrame frame;
     private final JButton[][] cellButtons;
@@ -39,7 +45,7 @@ public class SudokuView implements Observer {
      * @param model the model that stores game state
      * @param controller the controller that handles user actions
      */
-    public SudokuView(SudokuModel model, SudokuController controller) {
+    public SudokuView(ISudokuModel model, SudokuController controller) {
         assert model != null : "model must not be null";
         assert controller != null : "controller must not be null";
 
@@ -56,10 +62,11 @@ public class SudokuView implements Observer {
         this.hintEnabledCheckBox = new JCheckBox("Hint Enabled");
         this.randomPuzzleCheckBox = new JCheckBox("Random Puzzle");
 
+        setLookAndFeelColours();
         buildFrame();
         model.addObserver(this);
         controller.setView(this);
-        update(model, null);
+        update(null, null);
     }
 
     /**
@@ -86,6 +93,7 @@ public class SudokuView implements Observer {
     private void buildFrame() {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
+        frame.getContentPane().setBackground(APP_BACKGROUND);
         addNumberKeyBindings();
         addNavigationKeyBindings();
         addInvalidInputHandler();
@@ -95,6 +103,14 @@ public class SudokuView implements Observer {
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+    }
+
+    private void setLookAndFeelColours() {
+        UIManager.put("Panel.background", APP_BACKGROUND);
+        UIManager.put("CheckBox.background", APP_BACKGROUND);
+        UIManager.put("CheckBox.foreground", BUTTON_TEXT);
+        UIManager.put("Button.background", BUTTON_BACKGROUND);
+        UIManager.put("Button.foreground", BUTTON_TEXT);
     }
 
     private void addNumberKeyBindings() {
@@ -181,6 +197,11 @@ public class SudokuView implements Observer {
 
     private JPanel createCheckBoxPanel() {
         JPanel panel = new JPanel();
+        panel.setBackground(APP_BACKGROUND);
+        panel.setBorder(BorderFactory.createEmptyBorder(8, 8, 6, 8));
+        styleCheckBox(validationFeedbackCheckBox);
+        styleCheckBox(hintEnabledCheckBox);
+        styleCheckBox(randomPuzzleCheckBox);
         validationFeedbackCheckBox.addActionListener((ActionEvent event) -> {
             if (!updatingView) {
                 controller.onValidationFeedbackChanged(validationFeedbackCheckBox.isSelected());
@@ -205,6 +226,8 @@ public class SudokuView implements Observer {
 
     private JPanel createBoardPanel() {
         JPanel panel = new JPanel(new GridLayout(BOARD_SIZE, BOARD_SIZE));
+        panel.setBackground(GRID_BORDER);
+        panel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
                 JButton button = createCellButton(row, col);
@@ -222,6 +245,8 @@ public class SudokuView implements Observer {
         button.setPreferredSize(CELL_SIZE);
         button.setMinimumSize(CELL_SIZE);
         button.setMargin(new Insets(0, 0, 0, 0));
+        button.setBackground(NORMAL_BACKGROUND);
+        button.setForeground(BUTTON_TEXT);
         button.setBorder(createCellBorder(row, col));
         button.addActionListener((ActionEvent event) -> {controller.onCellClicked(row, col);});
         return button;
@@ -229,6 +254,7 @@ public class SudokuView implements Observer {
 
     private JPanel createControlPanel() {
         JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(APP_BACKGROUND);
         panel.add(createNumberKeyboardPanel(), BorderLayout.CENTER);
         panel.add(createButtonPanel(), BorderLayout.SOUTH);
         return panel;
@@ -237,6 +263,8 @@ public class SudokuView implements Observer {
     private JPanel createNumberKeyboardPanel() {
         JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         JPanel panel = new JPanel(new GridLayout(3, 3, 4, 4));
+        wrapper.setBackground(PANEL_BACKGROUND);
+        panel.setBackground(PANEL_BACKGROUND);
         wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         for (int number = 1; number <= BOARD_SIZE; number++) {
             panel.add(createNumberButton(number));
@@ -251,12 +279,20 @@ public class SudokuView implements Observer {
         button.setPreferredSize(NUMBER_BUTTON_SIZE);
         button.setMinimumSize(NUMBER_BUTTON_SIZE);
         button.setFocusPainted(false);
+        styleButton(button);
         button.addActionListener((ActionEvent event) -> {controller.onNumberInput(number);});
         return button;
     }
 
     private JPanel createButtonPanel() {
         JPanel panel = new JPanel();
+        panel.setBackground(APP_BACKGROUND);
+        panel.setBorder(BorderFactory.createEmptyBorder(6, 8, 8, 8));
+        styleButton(eraseButton);
+        styleButton(undoButton);
+        styleButton(hintButton);
+        styleButton(resetButton);
+        styleButton(newGameButton);
         eraseButton.addActionListener((ActionEvent event) -> {controller.onEraseClicked();});
         undoButton.addActionListener((ActionEvent event) -> {controller.onUndoClicked();});
         hintButton.addActionListener((ActionEvent event) -> {controller.onHintClicked();});
@@ -269,6 +305,19 @@ public class SudokuView implements Observer {
         panel.add(resetButton);
         panel.add(newGameButton);
         return panel;
+    }
+
+    private void styleButton(JButton button) {
+        button.setBackground(BUTTON_BACKGROUND);
+        button.setForeground(BUTTON_TEXT);
+        button.setOpaque(true);
+        button.setBorder(BorderFactory.createLineBorder(GRID_BORDER));
+    }
+
+    private void styleCheckBox(JCheckBox checkBox) {
+        checkBox.setBackground(APP_BACKGROUND);
+        checkBox.setForeground(BUTTON_TEXT);
+        checkBox.setFocusPainted(false);
     }
 
     /**
@@ -350,10 +399,13 @@ public class SudokuView implements Observer {
         button.setEnabled(editable);
         button.setFocusable(editable);
         button.setBorder(createCellBorder(row, col));
-        button.setForeground(Color.BLACK);
-        button.setFont(new Font(Font.SANS_SERIF, preFilled ? Font.BOLD : Font.PLAIN, 22));
+        button.setForeground(BUTTON_TEXT);
+        button.setFont(new Font(Font.SANS_SERIF,
+                preFilled || controller.isSelectedCell(row, col) ? Font.BOLD : Font.PLAIN, 22));
         if (model.isCellInvalid(row, col)) {
             button.setBackground(INVALID_BACKGROUND);
+        } else if (controller.isSelectedCell(row, col)) {
+            button.setBackground(SELECTED_BACKGROUND);
         } else if (preFilled) {
             button.setBackground(PREFILLED_BACKGROUND);
         } else {
@@ -376,7 +428,11 @@ public class SudokuView implements Observer {
         int left = col % 3 == 0 ? 3 : 1;
         int bottom = row == BOARD_SIZE - 1 ? 3 : 1;
         int right = col == BOARD_SIZE - 1 ? 3 : 1;
-        Color borderColor = controller.isSelectedCell(row, col) ? SELECTED_BORDER : Color.BLACK;
-        return BorderFactory.createMatteBorder(top, left, bottom, right, borderColor);
+        if (controller.isSelectedCell(row, col)) {
+            return BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(SELECTED_BORDER, 4),
+                    BorderFactory.createMatteBorder(top, left, bottom, right, GRID_BORDER));
+        }
+        return BorderFactory.createMatteBorder(top, left, bottom, right, GRID_BORDER);
     }
 }

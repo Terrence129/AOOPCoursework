@@ -73,6 +73,7 @@ class SudokuModelTest {
 
         assertTrue(model.setValue(0, 1, 2));
         assertEquals(2, model.getValueAt(0, 1));
+        assertFalse(model.setValue(0, 1, 2));
         assertTrue(model.setValue(0, 2, 3));
         assertEquals(3, model.getValueAt(0, 2));
 

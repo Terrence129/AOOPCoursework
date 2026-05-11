@@ -1,8 +1,7 @@
 package sudoku.cli;
 
-import sudoku.model.SudokuModel;
+import sudoku.model.ISudokuModel;
 
-import java.nio.file.Path;
 import java.util.Scanner;
 
 // Command line version of the Sudoku game. It uses the same model as the GUI.
@@ -10,17 +9,17 @@ public class SudokuCLI {
     private static final int BOARD_SIZE = 9;
     private static final int EMPTY_VALUE = 0;
 
-    private final SudokuModel model;
+    private final ISudokuModel model;
     private final Scanner scanner;
 
     /**
      * Creates the CLI game.
      *
-     * @param puzzleFile the path to the puzzles file
+     * @param model the model that stores game state and rules
      */
-    public SudokuCLI(Path puzzleFile) {
-        assert puzzleFile != null : "puzzleFile must not be null";
-        this.model = new SudokuModel(puzzleFile);
+    public SudokuCLI(ISudokuModel model) {
+        assert model != null : "model must not be null";
+        this.model = model;
         this.scanner = new Scanner(System.in);
     }
 
